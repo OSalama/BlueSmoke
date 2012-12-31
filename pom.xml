@@ -6,7 +6,7 @@
 	<artifactId>farm</artifactId>
 	<packaging>war</packaging>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Vaadin Web Application</name>
+	<name>BlueSmoke</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -62,7 +62,7 @@
 					<execution>
 						<goals>
 							<goal>resources</goal>
-							<!--<goal>compile</goal>-->
+							<goal>compile</goal>
 						</goals>
 					</execution>
 				</executions>
