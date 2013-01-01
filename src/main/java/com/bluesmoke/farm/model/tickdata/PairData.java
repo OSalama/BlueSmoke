@@ -10,6 +10,13 @@ public class PairData {
     private double askVol;
     private double bidVol;
 
+    private double open;
+    private double high;
+    private double low;
+    private double close;
+    private double volume;
+
+
     public PairData(Pair pair, double ask, double bid, double askVol, double bidVol)
     {
         this.pair = pair;
@@ -19,6 +26,17 @@ public class PairData {
 
         this.askVol = askVol;
         this.bidVol = bidVol;
+    }
+
+    public PairData(Pair pair, double open, double high, double low, double close, double vol)
+    {
+        this.pair = pair;
+        this.open = open;
+        this.high = high;
+        this.low = low;
+        this.close = close;
+
+        this.volume = vol;
     }
 
     public String getPair() {
@@ -45,11 +63,35 @@ public class PairData {
         return bidVol;
     }
 
+    public double getVolume() {
+        return volume;
+    }
+
+    public double getOpen() {
+        return open;
+    }
+
+    public double getHigh() {
+        return high;
+    }
+
+    public double getLow() {
+        return low;
+    }
+
+    public double getClose() {
+        return close;
+    }
+
     public String toString()
     {
         return      "{pair=" + pair + ", "
                 +   "ask=" + ask + ", "
                 +   "bid=" + bid + ", "
+                +   "open=" + open + ", "
+                +   "high=" + high + ", "
+                +   "low=" + low + ", "
+                +   "close=" + close + ", "
                 +   "askVol=" + askVol + ", "
                 +   "bidVol=" + bidVol + "}";
     }

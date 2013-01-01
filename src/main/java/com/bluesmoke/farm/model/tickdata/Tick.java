@@ -29,14 +29,14 @@ public class Tick {
         }
     }
 
-    public void addNewsData(String title, String news) throws TickEditingLockedException {
+    public void addNewsData(NewsData data) throws TickEditingLockedException {
         if(locked)
         {
             throw new TickEditingLockedException();
         }
         else
         {
-            newsData.add(new NewsData(title, news));
+            newsData.add(data);
         }
     }
 
