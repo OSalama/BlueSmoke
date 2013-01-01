@@ -60,24 +60,41 @@ public class VCorrelatorPlacer implements Refreshable{
 
                 correlator.setDestX(((genC + 1) * canvas.width) / (maxGen + 2) + (int)canvas.random(5));
 
-                correlator.setDestY(canvas.height - (int)(sharpe*(canvas.height - 100)/maxLogSharpe));
-
-                double r = 2;
-                if(maxPnL > minPnL)
+                double divisor = maxPnL;
+                if(Math.abs(minPnL) > divisor)
                 {
-                  r += (5.0 * (pnl - minPnL)/(maxPnL - minPnL));
+                    divisor = -minPnL;
                 }
-                correlator.setR((int)r);
+                divisor = 2 * divisor;
+                if(divisor == 0)
+                {
+                    divisor = 1;
+                }
+
+                double ratio = Math.log(Math.abs(pnl) + 1)/(Math.log((divisor/2) + 1));
+
+                correlator.setDestY(canvas.height/2 + 100 - (int)(Math.signum(pnl) * ratio * (canvas.height - 200)/2));
+
             }
             catch (Exception e)
             {
                 canvas.logText("ERROR: " + correlator.id + "," + sharpe + "," + pnl + "," + genC);
             }
         }
-        double maxSharpe = Math.exp(maxLogSharpe) - 1;
-        for(int i = 0; i < 20; i++)
+        double divisor = maxPnL;
+        if(Math.abs(minPnL) > divisor)
         {
-            double sharpe = (double)((int)(((i*maxSharpe)/20)*100))/100;
+            divisor = -minPnL;
+        }
+        if(divisor == 0)
+        {
+            divisor = 1;
+        }
+        double increment = (Math.log((divisor) + 1))/10;
+        for(int i = 0; i < 11; i++)
+        {
+            double pnl = (double)((int)((Math.exp(i * increment) - 1)*100))/100;
+
             if(!yAxis.containsKey(i))
             {
                 Text t = canvas.text("", 2, 10);
@@ -85,8 +102,18 @@ public class VCorrelatorPlacer implements Refreshable{
                 t.setFillColor("white");
                 yAxis.put(i, t);
             }
-            yAxis.get(i).setText("" + sharpe);
-            yAxis.get(i).setY(canvas.height - (int)(Math.log(sharpe + 1)*(canvas.height - 100)/maxLogSharpe));
+            yAxis.get(i).setText("" + pnl);
+            yAxis.get(i).setY(canvas.height/2 + 100 - (int)(i/10.0 * (canvas.height - 200)/2));
+
+            if(!yAxis.containsKey(-i))
+            {
+                Text t = canvas.text("", 2, 10);
+                t.setStrokeOpacity(0);
+                t.setFillColor("white");
+                yAxis.put(-i, t);
+            }
+            yAxis.get(-i).setText("" + -pnl);
+            yAxis.get(-i).setY(canvas.height/2 + 100 - (int)(-i/10.0 * (canvas.height - 200)/2));
         }
     }
 
@@ -126,6 +153,9 @@ public class VCorrelatorPlacer implements Refreshable{
                 maxLogSharpe = logSharpe;
             }
 
+            double r = 2 + (5.0 * logSharpe/maxLogSharpe);
+            correlators.get(value).setR((int)r);
+
             double pnl = (Double)correlators.get(value).information.get("PNL");
             if(pnl < minPnL)
             {
@@ -143,10 +173,6 @@ public class VCorrelatorPlacer implements Refreshable{
     }
 
     public void refresh() {
-        /*for(VCorrelator correlator : correlators.values())
-        {
-            correlator.setDestX((int) canvas.random(canvas.width));
-            correlator.setDestY((int) canvas.random(canvas.height));
-        }*/
+
     }
 }

@@ -116,7 +116,12 @@ public class VCorrelator implements Refreshable{
             }
             else if(property.equals("SHARPE"))
             {
-                information.put(property, Double.parseDouble(value));
+                double sharpe = 0;
+                if(!value.equals("Infinity"))
+                {
+                    sharpe = Double.parseDouble(value);
+                }
+                information.put(property, sharpe);
                 addToPopUp(property, value);
             }
             else if(property.equals("PAIR"))
