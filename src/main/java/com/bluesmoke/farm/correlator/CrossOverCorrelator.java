@@ -137,7 +137,15 @@ public class CrossOverCorrelator extends GenericCorrelator{
                 return "" + 0;
             }
 
-            state = "" + (int)(Math.signum(cross) * Math.log10(Math.abs(cross + 1)));
+            int direction = 0;
+            if(currentA > currentP)
+            {
+                direction = 1;
+            }
+
+            currentUnderlyingComponents.put("direction", direction);
+
+            state = "" + (int)(Math.signum(cross) * Math.log10(Math.abs(cross + 1))) + "," + direction;
         }
         catch (Exception e)
         {

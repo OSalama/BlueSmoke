@@ -70,8 +70,8 @@ public class DescendantCorrelator extends GenericCorrelator {
                     else if(component.getKey().equals(PassiveParentConfig.MODE))
                     {
                         int mode = 0;
-                        long freq = 0;
-                        TreeMap<Integer, Long> dist = pParentStateValueData.getDist().get(component.getValue());
+                        double freq = 0;
+                        TreeMap<Integer, Double> dist = pParentStateValueData.getDist().get(component.getValue());
                         if(dist != null)
                         {
                             for(int actionClass : dist.keySet())
@@ -89,8 +89,8 @@ public class DescendantCorrelator extends GenericCorrelator {
                     else if(component.getKey().equals(PassiveParentConfig.MODE_P))
                     {
                         int mode = 0;
-                        long freq = 0;
-                        TreeMap<Integer, Long> dist = pParentStateValueData.getDist().get(component.getValue());
+                        double freq = 0;
+                        TreeMap<Integer, Double> dist = pParentStateValueData.getDist().get(component.getValue());
                         if(dist != null)
                         {
                             for(int actionClass : dist.keySet())
@@ -112,8 +112,8 @@ public class DescendantCorrelator extends GenericCorrelator {
                     else if(component.getKey().equals(PassiveParentConfig.MODE_N))
                     {
                         int mode = 0;
-                        long freq = 0;
-                        TreeMap<Integer, Long> dist = pParentStateValueData.getDist().get(component.getValue());
+                        double freq = 0;
+                        TreeMap<Integer, Double> dist = pParentStateValueData.getDist().get(component.getValue());
                         if(dist != null)
                         {
                             for(int actionClass : dist.keySet())

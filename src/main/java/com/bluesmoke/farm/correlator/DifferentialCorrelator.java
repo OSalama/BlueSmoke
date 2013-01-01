@@ -16,7 +16,6 @@ public class DifferentialCorrelator extends GenericCorrelator{
     {
         super("Differential_" + id, correlatorBuilderManager, pool, feed, aggressiveParent, passiveParent, config);
         numTicksObserved = 0;
-        numTicksGapWithHorizon  = 0;
     }
 
     @Override
@@ -44,6 +43,11 @@ public class DifferentialCorrelator extends GenericCorrelator{
         try{
             String type = (String) config.get("type");
             int timeSpan = (Integer) config.get("timeSpan");
+            if(!config.containsKey("aggressiveUnderlying") || !aggressiveParent.currentUnderlyingComponents.containsKey(config.get("aggressiveUnderlying")))
+            {
+                killLineage();
+                return null;
+            }
             double current = (Double) aggressiveParent.currentUnderlyingComponents.get(config.get("aggressiveUnderlying"));
 
             if(type.equals("Single"))
