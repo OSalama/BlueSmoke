@@ -74,9 +74,19 @@ public class OpenOrder {
         return pnl;
     }
 
+    public double getPrice()
+    {
+        return open;
+    }
+
     public double[] getSuccessData()
     {
         return successData;
+    }
+
+    public char getPosition()
+    {
+        return position;
     }
 
 }
