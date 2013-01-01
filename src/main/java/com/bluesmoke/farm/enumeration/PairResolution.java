@@ -11,7 +11,9 @@ public class PairResolution {
         pairs.put(Pair.EURUSD, 0.0001);
         pairs.put(Pair.GBPUSD, 0.0001);
         pairs.put(Pair.USDCHF, 0.0001);
-        pairs.put(Pair.USDJPY, 0.01);
+        pairs.put(Pair.NZDUSD, 0.0001);
+        pairs.put(Pair.AUDUSD, 0.0001);
+        //pairs.put(Pair.USDJPY, 0.01);
 
         return pairs.get(pair);
     }

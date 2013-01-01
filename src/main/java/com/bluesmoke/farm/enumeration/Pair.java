@@ -3,6 +3,8 @@ package com.bluesmoke.farm.enumeration;
 public enum Pair {
     EURUSD,
     GBPUSD,
-    USDJPY,
-    USDCHF
+    //USDJPY,
+    USDCHF,
+    NZDUSD,
+    AUDUSD
 }
