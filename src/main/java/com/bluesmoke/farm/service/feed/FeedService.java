@@ -1,5 +1,6 @@
 package com.bluesmoke.farm.service.feed;
 
+import com.bluesmoke.farm.exception.InvalidTimeStampException;
 import com.bluesmoke.farm.listener.FeedListener;
 import com.bluesmoke.farm.model.tickdata.Tick;
 import com.bluesmoke.farm.service.GenericService;
@@ -18,7 +19,7 @@ public abstract class FeedService implements GenericService {
 
     private boolean paused = false;
 
-    public abstract Tick getNextTick();
+    public abstract Tick getNextTick() throws InvalidTimeStampException;
 
     public abstract void reset();
 
@@ -44,7 +45,13 @@ public abstract class FeedService implements GenericService {
 
     public synchronized boolean getAndBroadcastNextTick()
     {
-        getNextTick();
+        try{
+            getNextTick();
+        }
+        catch (InvalidTimeStampException e)
+        {
+            e.printStackTrace();
+        }
         broadcastTick();
         return hasNext;
     }
