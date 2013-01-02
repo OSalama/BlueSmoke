@@ -35,7 +35,7 @@ public class CorrelatorBuilderManager {
             randMap.put(Math.random() * builders.get(builder), builder);
         }
 
-        randMap.ceilingEntry(0.0).getValue().build(aggressiveParent, passiveParent);
+        randMap.firstEntry().getValue().build(aggressiveParent, passiveParent);
     }
 
     public void build(GenericCorrelator parent)
@@ -46,6 +46,6 @@ public class CorrelatorBuilderManager {
             randMap.put(Math.random() * builders.get(builder), builder);
         }
 
-        randMap.ceilingEntry(0.0).getValue().build(parent);
+        randMap.firstEntry().getValue().build(parent);
     }
 }

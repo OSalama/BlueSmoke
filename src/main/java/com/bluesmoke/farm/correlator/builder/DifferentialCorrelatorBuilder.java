@@ -36,16 +36,16 @@ public class DifferentialCorrelatorBuilder implements CorrelatorBuilder {
 
         boolean valid = false;
 
-        double score = 0;
+        double score = Double.NEGATIVE_INFINITY;
         GenericCorrelator passiveParent = null;
         for(GenericCorrelator candidate : pool)
         {
-            if(candidate != parent)
+            if(candidate != parent && candidate.getAge() > 1000)
             {
                 double random = Math.random();
-                if(random*candidate.getSharpe() > score)
+                if(random*candidate.getPnL() > score)
                 {
-                    score = random*candidate.getSharpe();
+                    score = random*candidate.getPnL();
                     passiveParent = candidate;
                 }
             }

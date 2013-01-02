@@ -8,7 +8,7 @@ import java.lang.reflect.Constructor;
 import java.util.HashMap;
 
 public class CorrelatorFromCodeFactory {
-   public static GenericCorrelator createCorrelator(String classPath, String className, String correlatorCode, CorrelatorBuilderManager correlatorBuilderManager, FeedService feed, CorrelatorPool correlatorPool, GenericCorrelator aParent, GenericCorrelator pParent, HashMap<String, String> config)
+   public static GenericCorrelator createCorrelator(String classPath, String className, String correlatorCode, CorrelatorBuilderManager correlatorBuilderManager, FeedService feed, CorrelatorPool correlatorPool, GenericCorrelator aParent, GenericCorrelator pParent, HashMap<String, Object> config)
    {
        GenericCorrelator correlator = null;
        try
