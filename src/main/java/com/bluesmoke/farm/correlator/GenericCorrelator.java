@@ -24,7 +24,7 @@ public abstract class GenericCorrelator extends Thread{
 
     private long breedingAge;
 
-    private double pnl = 0;
+    public double pnl = 0;
     private boolean toInterrupt = false;
 
     private int stateComponentsNumber = -1;
@@ -33,7 +33,6 @@ public abstract class GenericCorrelator extends Thread{
     protected TreeMap<String, Object> currentUnderlyingComponents;
 
     protected Pair pair;
-    protected char pairMetric;
 
     protected GenericCorrelator aggressiveParent;
     protected GenericCorrelator passiveParent;
@@ -41,9 +40,9 @@ public abstract class GenericCorrelator extends Thread{
     protected ArrayList<GenericCorrelator> children = new ArrayList<GenericCorrelator>();
 
     protected int numTicksObserved;
-    protected int numTicksGapWithHorizon;
-    protected int numTicksToWait;
     protected double resolution;
+    public double confidenceProfit = 0.6;
+    public double confidenceLoss = 0.1;
 
     protected ArrayList<Tick> ticks = new ArrayList<Tick>();
     protected Tick currentTick;
@@ -53,13 +52,14 @@ public abstract class GenericCorrelator extends Thread{
 
     protected ConcurrentHashMap<String, Object> correlatorData = new ConcurrentHashMap<String, Object>();
     protected TreeMap<String, StateValueData> memory = new TreeMap<String, StateValueData>();
-    protected List<Map.Entry<StateValueData, Double>> historyStatValueData;
     protected FixedSizeStackArrayList<StateValueData> stackStateValueData = new FixedSizeStackArrayList<StateValueData>(5000);
     protected FixedSizeStackArrayList<TreeMap<String, Object>> stackUnderlyingComponents = new FixedSizeStackArrayList<TreeMap<String, Object>>(5000);
 
-    private TreeMap<Integer, TreeMap<Integer, Long>> successGrid = new TreeMap<Integer, TreeMap<Integer, Long>>();
+    protected HashSet<StateValueData> aliveStates = new HashSet<StateValueData>();
+    protected HashSet<StateValueData> aliveStatesToAdd = new HashSet<StateValueData>();
+    protected HashSet<StateValueData> aliveStatesToKill = new HashSet<StateValueData>();
 
-    private List<OpenOrder> openOrders = new LinkedList<OpenOrder>();
+    private TreeMap<Integer, TreeMap<Integer, Long>> successGrid = new TreeMap<Integer, TreeMap<Integer, Long>>();
 
     protected CorrelatorPool pool;
     protected FeedService feed;
@@ -93,21 +93,15 @@ public abstract class GenericCorrelator extends Thread{
         {
             this.config = config;
         }
-        //stackStateValueData.setSize(10000);
-        //stackUnderlyingComponents.setSize(10000);
 
         if(aggressiveParent != null)
         {
             this.setBreedingAge(aggressiveParent.getBreedingAge());
-            this.setNumberTicksGapWithHorizon(aggressiveParent.getNumTicksGapWithHorizon());
-            this.setNumberTicksObserved(aggressiveParent.getNumTicksGapWithHorizon());
-            this.setNumberTicksToWait(aggressiveParent.getNumTicksToWait());
+            this.setNumberTicksObserved(aggressiveParent.getNumTicksObserved());
         }
         else {
             Random rand = new Random();
-            setNumberTicksObserved((int) Math.pow(10,rand.nextInt(2) + 1));
-            setNumberTicksGapWithHorizon((int) Math.pow(10, rand.nextInt(2) + 1));
-            setNumberTicksToWait((int) Math.pow(10, rand.nextInt(2) + 1));
+            setNumberTicksObserved((int) Math.pow(2, rand.nextInt(7) + 1));
             setBreedingAge(10000);
         }
 
@@ -117,15 +111,9 @@ public abstract class GenericCorrelator extends Thread{
             randMap.put(Math.random(), pair);
         }
 
-        Pair trackedPair = randMap.ceilingEntry(0.0).getValue();
+        Pair trackedPair = randMap.firstEntry().getValue();
 
-        TreeMap<Double, Character> randMetric = new TreeMap<Double, Character>();
-        randMetric.put(Math.random(), 'A');
-        randMetric.put(Math.random(), 'B');
-        randMetric.put(Math.random(), 'M');
-
-        Character trackedMetric = randMetric.ceilingEntry(0.0).getValue();
-        setTrackedPairAndMetric(trackedPair, trackedMetric);
+        setTrackedPairAndMetric(trackedPair);
 
         pool.addCorrelator(this);
     }
@@ -138,7 +126,6 @@ public abstract class GenericCorrelator extends Thread{
     public void reset()
     {
         correlatorData.clear();
-        historyStatValueData.clear();
         stackStateValueData.clear();
         stackUnderlyingComponents.clear();
         memory.clear();
@@ -151,12 +138,10 @@ public abstract class GenericCorrelator extends Thread{
         children.add(child);
     }
 
-    public void setTrackedPairAndMetric(Pair pair, char metric)
+    public void setTrackedPairAndMetric(Pair pair)
     {
         this.pair = pair;
-        this.pairMetric = metric;
         config.put("pair", pair);
-        config.put("pairMetric", pairMetric);
 
         this.resolution = PairResolution.getResolution(pair);
         config.put("resolution", resolution);
@@ -168,23 +153,31 @@ public abstract class GenericCorrelator extends Thread{
         config.put("numTicksObserved", num);
     }
 
-    public void setNumberTicksGapWithHorizon(int num)
-    {
-        this.numTicksGapWithHorizon = num;
-        config.put("numTicksGapWithHorizon", num);
-    }
-
-    public void setNumberTicksToWait(int num)
-    {
-        this.numTicksToWait = num;
-        config.put("numTicksToWait", num);
-        historyStatValueData = new ArrayList<Map.Entry<StateValueData, Double>>();
-    }
-
     public void setBreedingAge(long breedingAge)
     {
         this.breedingAge = breedingAge;
         config.put("breedingAge", breedingAge);
+    }
+
+    public void setConfidenceLevels()
+    {
+        if(config.containsKey("confidenceProfit"))
+        {
+            confidenceProfit = (Double)config.get("confidenceProfit") + Math.random()/10 - 0.05;
+        }
+        else {
+            confidenceProfit = Math.random()/2 + 0.5;
+        }
+        if(config.containsKey("confidenceLoss"))
+        {
+            confidenceLoss = (Double)config.get("confidenceLoss") + Math.random()/10 - 0.05;
+        }
+        else {
+            confidenceLoss = Math.random()/2;
+        }
+        config.put("confidenceProfit", confidenceProfit);
+        config.put("confidenceLoss", confidenceLoss);
+
     }
 
     public StateValueData getCurrentStateValueData()
@@ -216,19 +209,6 @@ public abstract class GenericCorrelator extends Thread{
         {
             correlatorBuilderManager.build(this);
         }
-    }
-
-    public void createOrder(String state, double takeProfitPips, double stopLossPips)
-    {
-        double open =  currentTick.getPairData(pair.name()).getMid();
-        switch (pairMetric)
-        {
-            case 'A' : open =  currentTick.getPairData(pair.name()).getAsk(); break;
-            case 'B' : open =  currentTick.getPairData(pair.name()).getBid(); break;
-        }
-
-        openOrders.add(new OpenOrder(state, open, open + takeProfitPips, open + stopLossPips));
-        //System.out.println("Order created: " + id + ", Target: " + takeProfitPips);
     }
 
     public abstract void createMutant();
@@ -269,7 +249,7 @@ public abstract class GenericCorrelator extends Thread{
             {
                 currentTick = tick;
                 ticks.add(tick);
-                if(ticks.size() > (numTicksObserved + numTicksGapWithHorizon))
+                if(ticks.size() > numTicksObserved)
                 {
                     ticks.remove(0);
 
@@ -284,145 +264,45 @@ public abstract class GenericCorrelator extends Thread{
 
                     stackUnderlyingComponents.addToStack(currentUnderlyingComponents);
 
-                    double currentValueOfTracked =  tick.getPairData(pair.name()).getMid();
-                    switch (pairMetric)
-                    {
-                        case 'A' : currentValueOfTracked =  tick.getPairData(pair.name()).getAsk(); break;
-                        case 'B' : currentValueOfTracked =  tick.getPairData(pair.name()).getBid(); break;
-                    }
-
                     if(currentStateValueID != null)
                     {
                         if(!memory.containsKey(currentStateValueID))
                         {
-                            memory.put(currentStateValueID, new StateValueData(currentStateValueID, resolution, passCode));
+                            memory.put(currentStateValueID, new StateValueData(this, currentStateValueID, resolution, passCode));
                         }
 
                         StateValueData currentStateValueData = memory.get(currentStateValueID);
+                        try
+                        {
+                            currentStateValueData.newOrder(age, tick.getPairData(pair.name()).getClose(), passCode);
+                        }
+                        catch (IllegalStateValueDataModificationException e)
+                        {
+                            e.printStackTrace();
+                        }
                         if(stateComponentsNumber == -1)
                         {
                             stateComponentsNumber = currentStateValueData.getStateComponentNumber();
                         }
-                        historyStatValueData.add(new AbstractMap.SimpleEntry<StateValueData, Double>(currentStateValueData, currentValueOfTracked));
                         stackStateValueData.addToStack(currentStateValueData);
 
-                        if(currentStateValueData.getCount() > 50 && currentStateValueData.getSharpe() > 1)
-                        {
-                            int mode = 0;
-                            long freq = 0;
-                            int modeP = 0;
-                            long freqP = 0;
-                            int modeN = 0;
-                            long freqN = 0;
-                            for(TreeMap<Integer, Long> dist : currentStateValueData.getDist().values())
-                            {
-                                if(dist != null)
-                                {
-                                    for(int actionClass : dist.keySet())
-                                    {
-                                        if(dist.get(actionClass) > freq)
-                                        {
-                                            freq = dist.get(actionClass);
-                                            mode = actionClass;
-                                        }
-
-                                        if(actionClass > 0)
-                                        {
-                                            if(dist.get(actionClass) > freqP)
-                                            {
-                                                freqP = dist.get(actionClass);
-                                                modeP = actionClass;
-                                            }
-                                        }
-
-                                        if(actionClass < 0)
-                                        {
-                                            if(dist.get(actionClass) > freqN)
-                                            {
-                                                freqN = dist.get(actionClass);
-                                                modeN = actionClass;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            double average = currentStateValueData.getAverage();
-
-                            int direction = 1;
-                            if(Math.signum(mode) == Math.signum(modeN))
-                            {
-                                direction = -1;
-                            }
-
-                            if(Math.signum(average) == direction)
-                            {
-                                double takeProfitPips = 0;
-                                if(direction == 1)
-                                {
-                                    takeProfitPips = modeP * PairResolution.getResolution(pair);
-                                }
-                                else
-                                {
-                                    takeProfitPips = modeN * PairResolution.getResolution(pair);
-                                }
-                                createOrder(currentStateValueID, takeProfitPips, -takeProfitPips);
-                            }
-                        }
                     }
                     else {
-                        historyStatValueData.add(null);
                         stackStateValueData.addToStack(null);
                     }
 
-                    if(historyStatValueData.size() > numTicksToWait)
+                    for(StateValueData stateValueData : aliveStates)
                     {
-                        historyStatValueData.remove(0);
-                    }
-
-                    int size = historyStatValueData.size();
-                    int i = 0;
-                    for(Map.Entry<StateValueData, Double> entry : historyStatValueData)
-                    {
-                        if(entry != null)
+                        try
                         {
-                            try
-                            {
-                                entry.getKey().addObservedResult(currentValueOfTracked - entry.getValue(), size - i, passCode);
-                            }
-                            catch (IllegalStateValueDataModificationException e)
-                            {
-                                e.printStackTrace();
-                            }
+                            stateValueData.addObservedResult(tick.getPairData(pair.name()).getLow(), tick.getPairData(pair.name()).getHigh(), age, passCode);
                         }
-                        i++;
-                    }
-
-                    LinkedList<OpenOrder> toRemove = new LinkedList<OpenOrder>();
-                    for(OpenOrder order : openOrders)
-                    {
-                        if(order.newPrice(currentValueOfTracked))
+                        catch (IllegalStateValueDataModificationException e)
                         {
-                            pnl += order.getPnL();
-                            toRemove.add(order);
-                            //System.out.println("Order closed: " + id + ", PnL: " + pnl);
-
-                            double[] successData = order.getSuccessData();
-                            int target = (int)(successData[0]/resolution);
-                            int observed = (int)(successData[1]/resolution);
-
-                            if(!successGrid.containsKey(target))
-                            {
-                                successGrid.put(target, new TreeMap<Integer, Long>());
-                            }
-                            if(!successGrid.get(target).containsKey(observed))
-                            {
-                                successGrid.get(target).put(observed, 0L);
-                            }
-                            successGrid.get(target).put(observed, successGrid.get(target).get(observed) + 1);
+                            e.printStackTrace();
                         }
                     }
-                    openOrders.removeAll(toRemove);
+                    refreshAliveStates();
                 }
             }
             processingStage = 'F';
@@ -438,6 +318,23 @@ public abstract class GenericCorrelator extends Thread{
             interrupt();
         }
         System.out.println("Correlator " + id + " ended...");
+    }
+
+    public void addLiveState(StateValueData stateValueData)
+    {
+        aliveStatesToAdd.add(stateValueData);
+    }
+    public void removeLiveState(StateValueData stateValueData)
+    {
+        aliveStatesToKill.add(stateValueData);
+    }
+
+    private void refreshAliveStates()
+    {
+        aliveStates.addAll(aliveStatesToAdd);
+        aliveStates.removeAll(aliveStatesToKill);
+        aliveStatesToAdd.clear();
+        aliveStatesToKill.clear();
     }
 
     public void setReady()
@@ -504,14 +401,6 @@ public abstract class GenericCorrelator extends Thread{
 
     public int getNumTicksObserved() {
         return numTicksObserved;
-    }
-
-    public int getNumTicksGapWithHorizon() {
-        return numTicksGapWithHorizon;
-    }
-
-    public int getNumTicksToWait() {
-        return numTicksToWait;
     }
 
     public long getBreedingAge()
@@ -600,10 +489,10 @@ public abstract class GenericCorrelator extends Thread{
         String info = "Correlator: " + id + "\n";
         info += "Children: " + children.size() + "\n";
         info += "States: " + memory.size() + "\n";
-        info += "History: " + historyStatValueData.size() + "\n";
+        //info += "History: " + historyStatValueData.size() + "\n";
         info += "Stack: " + stackStateValueData.size() + "\n";
         info += "Stack Underlying: " + stackUnderlyingComponents.size() + "\n";
-        info += "Open Orders: " + openOrders.size() + "\n";
+        //info += "Open Orders: " + openOrders.size() + "\n";
         info += "Success Grid: " + successGrid.size() + "\n";
         info += "Ticks: " + ticks.size() + "\n\n";
 
