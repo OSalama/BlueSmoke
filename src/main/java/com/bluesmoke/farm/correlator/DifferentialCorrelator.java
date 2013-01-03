@@ -43,12 +43,17 @@ public class DifferentialCorrelator extends GenericCorrelator{
         try{
             String type = (String) config.get("type");
             int timeSpan = (Integer) config.get("timeSpan");
-            if(!config.containsKey("aggressiveUnderlying") || !aggressiveParent.currentUnderlyingComponents.containsKey(config.get("aggressiveUnderlying")))
+            if(!config.containsKey("aggressiveUnderlying"))
             {
                 killLineage();
                 return null;
             }
-            double current = (Double) aggressiveParent.currentUnderlyingComponents.get(config.get("aggressiveUnderlying"));
+            Object o = aggressiveParent.getUnderlyingComponent(config.get("aggressiveUnderlying"));
+            if(o == null)
+            {
+                return null;
+            }
+            double current = (Double) o;
 
             if(type.equals("Single"))
             {
