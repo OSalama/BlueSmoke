@@ -65,13 +65,12 @@ public class VCorrelatorPlacer implements Refreshable{
                 {
                     divisor = -minPnL;
                 }
-                divisor = 2 * divisor;
                 if(divisor == 0)
                 {
                     divisor = 1;
                 }
 
-                double ratio = Math.log(Math.abs(pnl) + 1)/(Math.log((divisor/2) + 1));
+                double ratio = Math.log(Math.abs(pnl) + 1)/(Math.log(divisor + 1));
 
                 correlator.setDestY(canvas.height/2 + 100 - (int)(Math.signum(pnl) * ratio * (canvas.height - 200)/2));
 
