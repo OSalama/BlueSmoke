@@ -211,8 +211,15 @@ public class Launcher extends Application {
 
         startSim.addListener(new Button.ClickListener() {
             public void buttonClick(Button.ClickEvent event) {
-                emulator.startEmulation();
-                correlatorPool.activate();
+                try
+                {
+                    emulator.startEmulation();
+                    correlatorPool.activate();
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
             }
         });
 
@@ -222,7 +229,14 @@ public class Launcher extends Application {
 
         endSim.addListener(new Button.ClickListener() {
             public void buttonClick(Button.ClickEvent event) {
-                emulator.die();
+                try
+                {
+                    emulator.die();
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
             }
         });
 
@@ -253,8 +267,8 @@ public class Launcher extends Application {
         testInit.addListener(new Button.ClickListener() {
             public void buttonClick(Button.ClickEvent event) {
                 feed.reset();
-                feedsPath = "C:\\Users\\Oblene\\Desktop\\Sandbox\\Data";
-                //feedsPath = "/app/Temp";
+                //feedsPath = "C:\\Users\\Oblene\\Desktop\\Sandbox\\Data";
+                feedsPath = "/app/testing/hans/WebApps/Data";
                 feed.setFeedsPath(feedsPath);
                 buildFeedSelect();
 
