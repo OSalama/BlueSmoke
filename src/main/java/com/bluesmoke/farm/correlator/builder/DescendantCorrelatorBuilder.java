@@ -66,7 +66,7 @@ public class DescendantCorrelatorBuilder implements CorrelatorBuilder {
         GenericCorrelator mate = null;
         for(GenericCorrelator candidate : pool)
         {
-            if(candidate != parent && candidate.getAge() > 1000)
+            if(candidate != parent && candidate.getAge() > 1000 && !candidate.isStateLess())
             {
                 double rand = Math.random();
                 if(rand*candidate.getPnL() > score)

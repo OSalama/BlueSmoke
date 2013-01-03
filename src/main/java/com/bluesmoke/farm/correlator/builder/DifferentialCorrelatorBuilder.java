@@ -40,7 +40,7 @@ public class DifferentialCorrelatorBuilder implements CorrelatorBuilder {
         GenericCorrelator passiveParent = null;
         for(GenericCorrelator candidate : pool)
         {
-            if(candidate != parent && candidate.getAge() > 1000)
+            if(candidate != parent && candidate.getAge() > 1000 && !candidate.isStateLess())
             {
                 double random = Math.random();
                 if(random*candidate.getPnL() > score)
