@@ -42,12 +42,17 @@ public class CrossOverCorrelator extends GenericCorrelator{
         String state = null;
         try{
             int timeSpan = (Integer) config.get("timeSpan");
-            if(!config.containsKey("aggressiveUnderlying") || !aggressiveParent.currentUnderlyingComponents.containsKey(config.get("aggressiveUnderlying")))
+            if(!config.containsKey("aggressiveUnderlying"))
             {
                 killLineage();
                 return null;
             }
-            double currentA = (Double) aggressiveParent.currentUnderlyingComponents.get(config.get("aggressiveUnderlying"));
+            Object o = aggressiveParent.getUnderlyingComponent(config.get("aggressiveUnderlying"));
+            if(o == null)
+            {
+                return null;
+            }
+            double currentA = (Double) o;
             Object underlyingComponents = null;
             if(currentAggressiveListElement == null)
             {
@@ -81,12 +86,17 @@ public class CrossOverCorrelator extends GenericCorrelator{
                 return null;
             }
             double pastA = (Double) ((TreeMap<String, Object>) underlyingComponents).get(config.get("aggressiveUnderlying"));
-            if(!config.containsKey("passiveUnderlying") || !passiveParent.currentUnderlyingComponents.containsKey(config.get("passiveUnderlying")))
+            if(!config.containsKey("passiveUnderlying"))
             {
                 killLineage();
                 return null;
             }
-            double currentP = (Double) passiveParent.currentUnderlyingComponents.get(config.get("passiveUnderlying"));
+            o = passiveParent.getUnderlyingComponent(config.get("passiveUnderlying"));
+            if(o == null)
+            {
+                return null;
+            }
+            double currentP = (Double) o;
             underlyingComponents = null;
             if(currentPassiveListElement == null)
             {
