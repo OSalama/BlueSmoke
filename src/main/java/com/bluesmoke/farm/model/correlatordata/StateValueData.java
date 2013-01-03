@@ -93,68 +93,77 @@ public class StateValueData {
         for(Map.Entry<Long, OpenOrder> entry : openOrders.entrySet())
         {
             long orderNumber = entry.getKey();
-            OpenOrder order = entry.getValue();
-            double weight = Math.exp(-priority);
-            Integer timeClass = (int)(Math.log(currentTime - orderNumber)/ Math.log(2));
-            int maxClass = (int)((max - order.getPrice())/res);
-            int minClass = (int)((min - order.getPrice())/res);
-            if(!dist.containsKey(timeClass))
+            if(orderNumber != currentTime)
             {
-                dist.put(timeClass, new TreeMap<Integer, Double>());
-            }
-            for(int i = minClass; i <= maxClass; i++)
-            {
-                if(!dist.get(timeClass).containsKey(i))
+                OpenOrder order = entry.getValue();
+                double weight = Math.exp(-priority);
+                Integer timeClass = (int)(Math.log(currentTime - orderNumber)/ Math.log(2));
+                int maxClass = (int)((max - order.getPrice())/res);
+                int minClass = (int)((min - order.getPrice())/res);
+                if(!dist.containsKey(timeClass))
                 {
-                    dist.get(timeClass).put(i, 0.0);
+                    dist.put(timeClass, new TreeMap<Integer, Double>());
                 }
+                for(int i = minClass; i <= maxClass; i++)
+                {
+                    if(!dist.get(timeClass).containsKey(i))
+                    {
+                        dist.get(timeClass).put(i, 0.0);
+                    }
 
-                if(!collapsedDist.containsKey(i))
-                {
-                    collapsedDist.put(i, 0.0);
+                    if(!collapsedDist.containsKey(i))
+                    {
+                        collapsedDist.put(i, 0.0);
+                    }
                 }
-            }
-            for(int i = minClass; i <= maxClass; i++)
-            {
-                dist.get(timeClass).put(i, dist.get(timeClass).get(i) + weight);
-                collapsedDist.put(i, collapsedDist.get(i) + weight);
-            }
-            sumWeights += weight;
-            boolean closed = false;
-            if(order.getPosition() == 'L')
-            {
-                closed = order.newPrice(min);
-                if(!closed)
+                for(int i = minClass; i <= maxClass; i++)
                 {
-                    closed = order.newPrice(max);
+                    dist.get(timeClass).put(i, dist.get(timeClass).get(i) + weight);
+                    collapsedDist.put(i, collapsedDist.get(i) + weight);
                 }
-            }
-            else {
-                closed = order.newPrice(max);
-                if(!closed)
+                sumWeights += weight;
+                boolean closed = false;
+                if(order.getPosition() == 'L')
                 {
                     closed = order.newPrice(min);
+                    if(!closed)
+                    {
+                        closed = order.newPrice(max);
+                    }
                 }
+                else {
+                    closed = order.newPrice(max);
+                    if(!closed)
+                    {
+                        closed = order.newPrice(min);
+                    }
+                }
+
+                if(closed)
+                {
+                    closedOrders.add(orderNumber);
+                    double profit = weight * (order.getPnL()/res);
+                    //System.out.println("Order Closed from " + state + ": " + orderNumber + ": Profit: " + profit);
+
+                    pnl += profit;
+                    sum = pnl;
+                    sum2PnL += (profit*profit);
+                    sum2 = sum2PnL;
+                    correlator.pnl -= average;
+                    countClosed += weight;
+
+                    average = pnl/countClosed;
+                    correlator.pnl += average;
+
+                    double variance = Math.abs(sum2/countClosed - average);
+
+                    sdev = Math.sqrt(variance);
+                    double average2PnL = average*average;
+                    sharpe = Math.sqrt(average2PnL / variance);
+                }
+
+                priority++;
             }
-
-            if(closed)
-            {
-                closedOrders.add(orderNumber);
-                double profit = weight * (order.getPnL()/res);
-                //System.out.println("Order Closed from " + state + ": " + orderNumber + ": Profit: " + profit);
-
-                pnl += profit;
-                sum2PnL += (profit*profit);
-                correlator.pnl += weight * (order.getPnL()/res);
-                countClosed++;
-
-                double averagePnL = pnl/countClosed;
-                double average2PnL = averagePnL*averagePnL;
-                double variance = Math.abs(sum2PnL/countClosed - average2PnL);
-                sharpe = average2PnL / variance;
-            }
-
-            priority++;
         }
         for(long orderNumber : closedOrders)
         {
