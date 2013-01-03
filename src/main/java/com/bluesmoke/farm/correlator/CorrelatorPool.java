@@ -22,7 +22,6 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     private TreeMap<String, GenericCorrelator> correlators = new TreeMap<String, GenericCorrelator>();
     private ArrayList<GenericCorrelator> toKill = new ArrayList<GenericCorrelator>();
 
-    //private ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1000, 5000, 100, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(5000));
     private TreeMap<Integer, Set<GenericCorrelator>> generationPools = new TreeMap<Integer, Set<GenericCorrelator>>();
 
     private Tick currentTick;
@@ -61,7 +60,6 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
 
         System.out.println("Correlator " + correlator.getID() + " added in generation " + correlator.getGeneration());
 
-        //threadPoolExecutor.execute(correlator);
         if(active)
         {
             correlator.start();
@@ -91,6 +89,7 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     }
 
     public synchronized void onNewTick(Tick tick) {
+        long tStart = System.currentTimeMillis();
         currentTick = tick;
 
         for(Map.Entry<Integer,Set<GenericCorrelator>> generation : generationPools.entrySet())
@@ -148,6 +147,12 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
             //System.out.println("Generation " + generation.getKey() + " finished processing");
         }
         removeKilled();
+        long tEnd = System.currentTimeMillis();
+
+        if(tEnd - tStart > 500)
+        {
+            System.out.println("Farm overloading: " + (tEnd - tStart) + "ms");
+        }
     }
 
     public void causeMutationWave()
@@ -201,18 +206,31 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     {
         TreeMap<Double, GenericCorrelator> dieableCorrelators = new TreeMap<Double, GenericCorrelator>();
         List<GenericCorrelator> correlators = new ArrayList<GenericCorrelator>(this);
+
+        double minPnL = 0;
         for(GenericCorrelator correlator : correlators)
         {
-            if(correlator.getAge() > 10000 && correlator.getPnL() == 0)
+            if(correlator.getPnL() < minPnL)
+            {
+                minPnL = correlator.getPnL();
+            }
+        }
+        for(GenericCorrelator correlator : correlators)
+        {
+            if(correlator.getAge() > 10000 && correlator.getCurrentStateValueData() == null)
             {
                 correlator.killLineage();
+            }
+            else if(correlator.getAge() > 1000 && correlator.getPnL() == 0)
+            {
+                correlator.die();
             }
             else
             {
                 double pnl = correlator.getPnL();
-                if(correlator.children.size() == 0 && correlator.getAge() > 5000)
+                if(correlator.children.size() == 0 && correlator.getAge() > 5000 && correlator.getPnL() != 0)
                 {
-                    dieableCorrelators.put(Math.log(Math.abs(pnl) + 1)*Math.random(), correlator);
+                    dieableCorrelators.put(Math.log(pnl - minPnL + 1)*Math.random(), correlator);
                 }
             }
         }
@@ -271,11 +289,10 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
 
     private void removeKilled()
     {
-        removeAll(toKill);
         for(GenericCorrelator correlator : toKill)
         {
             generationPools.get(correlator.getGeneration()).remove(correlator);
-            //threadPoolExecutor.remove(correlator);
+            removeCorrelator(correlator);
             correlator.interrupt();
         }
         toKill.clear();
