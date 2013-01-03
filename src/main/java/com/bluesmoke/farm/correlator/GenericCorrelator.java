@@ -50,6 +50,8 @@ public abstract class GenericCorrelator extends Thread{
     private char processingStage = 'F';
     private boolean alive = true;
 
+    private boolean stateLess = false;
+
     protected ConcurrentHashMap<String, Object> correlatorData = new ConcurrentHashMap<String, Object>();
     protected TreeMap<String, StateValueData> memory = new TreeMap<String, StateValueData>();
     protected FixedSizeStackArrayList<StateValueData> stackStateValueData = new FixedSizeStackArrayList<StateValueData>(5000);
@@ -114,6 +116,8 @@ public abstract class GenericCorrelator extends Thread{
         Pair trackedPair = randMap.firstEntry().getValue();
 
         setTrackedPairAndMetric(trackedPair);
+
+        setConfidenceLevels();
 
         pool.addCorrelator(this);
     }
@@ -224,7 +228,7 @@ public abstract class GenericCorrelator extends Thread{
             while (processingStage != 'R')
             {
                 try {
-                    Thread.sleep(0,10);
+                    Thread.sleep(0,1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -238,11 +242,11 @@ public abstract class GenericCorrelator extends Thread{
             Tick tick = pool.getCurrentTick();
             age++;
 
-            if(memory.size() > 100 && generation > 0)
+            if(memory.size() > 100)
             {
                 if(Math.log(memory.size())/5 > stateComponentsNumber + 1)
                 {
-                    killLineage();
+                    setStateLess();
                 }
             }
             else if(tick != null)
@@ -255,6 +259,7 @@ public abstract class GenericCorrelator extends Thread{
 
                     //TODO
                     currentUnderlyingComponents = new TreeMap<String, Object>();
+
                     currentStateValueID = createState();
                     if(stateComponentsNumber < currentUnderlyingComponents.size())
                     {
@@ -264,45 +269,48 @@ public abstract class GenericCorrelator extends Thread{
 
                     stackUnderlyingComponents.addToStack(currentUnderlyingComponents);
 
-                    if(currentStateValueID != null)
+                    if(!stateLess)
                     {
-                        if(!memory.containsKey(currentStateValueID))
+                        if(currentStateValueID != null)
                         {
-                            memory.put(currentStateValueID, new StateValueData(this, currentStateValueID, resolution, passCode));
+                            if(!memory.containsKey(currentStateValueID))
+                            {
+                                memory.put(currentStateValueID, new StateValueData(this, currentStateValueID, resolution, passCode));
+                            }
+
+                            StateValueData currentStateValueData = memory.get(currentStateValueID);
+                            try
+                            {
+                                currentStateValueData.newOrder(age, tick.getPairData(pair.name()).getClose(), passCode);
+                            }
+                            catch (IllegalStateValueDataModificationException e)
+                            {
+                                e.printStackTrace();
+                            }
+                            if(stateComponentsNumber == -1)
+                            {
+                                stateComponentsNumber = currentStateValueData.getStateComponentNumber();
+                            }
+                            stackStateValueData.addToStack(currentStateValueData);
+
+                        }
+                        else {
+                            stackStateValueData.addToStack(null);
                         }
 
-                        StateValueData currentStateValueData = memory.get(currentStateValueID);
-                        try
+                        for(StateValueData stateValueData : aliveStates)
                         {
-                            currentStateValueData.newOrder(age, tick.getPairData(pair.name()).getClose(), passCode);
+                            try
+                            {
+                                stateValueData.addObservedResult(tick.getPairData(pair.name()).getLow(), tick.getPairData(pair.name()).getHigh(), age, passCode);
+                            }
+                            catch (IllegalStateValueDataModificationException e)
+                            {
+                                e.printStackTrace();
+                            }
                         }
-                        catch (IllegalStateValueDataModificationException e)
-                        {
-                            e.printStackTrace();
-                        }
-                        if(stateComponentsNumber == -1)
-                        {
-                            stateComponentsNumber = currentStateValueData.getStateComponentNumber();
-                        }
-                        stackStateValueData.addToStack(currentStateValueData);
-
+                        refreshAliveStates();
                     }
-                    else {
-                        stackStateValueData.addToStack(null);
-                    }
-
-                    for(StateValueData stateValueData : aliveStates)
-                    {
-                        try
-                        {
-                            stateValueData.addObservedResult(tick.getPairData(pair.name()).getLow(), tick.getPairData(pair.name()).getHigh(), age, passCode);
-                        }
-                        catch (IllegalStateValueDataModificationException e)
-                        {
-                            e.printStackTrace();
-                        }
-                    }
-                    refreshAliveStates();
                 }
             }
             processingStage = 'F';
@@ -394,6 +402,25 @@ public abstract class GenericCorrelator extends Thread{
         forcedie();
     }
 
+    public void setStateLess()
+    {
+        memory.clear();
+        stackStateValueData.clear();
+        for(GenericCorrelator child : children)
+        {
+            if(this == child.passiveParent)
+            {
+                child.killLineage();
+            }
+        }
+        pnl = 0;
+    }
+
+    public boolean isStateLess()
+    {
+        return stateLess;
+    }
+
     public void childDeath(GenericCorrelator child)
     {
         children.remove(child);
@@ -411,6 +438,15 @@ public abstract class GenericCorrelator extends Thread{
     public long getAge()
     {
         return age;
+    }
+
+    public synchronized Object getUnderlyingComponent(Object name)
+    {
+        if(currentUnderlyingComponents == null)
+        {
+            return null;
+        }
+        return currentUnderlyingComponents.get(name);
     }
 
     public GenericCorrelator getAggressiveParent()
@@ -446,16 +482,13 @@ public abstract class GenericCorrelator extends Thread{
     public double getSharpe()
     {
         double sharpe = 0;
-        int i = 0;
         for(StateValueData stateValueData : memory.values())
         {
             if(stateValueData != null)
             {
-                sharpe += stateValueData.getSharpe();
-                i++;
+                sharpe += (stateValueData.getSharpe()/memory.size());
             }
         }
-        sharpe = sharpe/i;
         return sharpe;
     }
 
@@ -476,6 +509,14 @@ public abstract class GenericCorrelator extends Thread{
 
     public double getPnL()
     {
+        pnl = 0;
+        for(StateValueData stateValueData : memory.values())
+        {
+            if(stateValueData != null)
+            {
+                pnl += (stateValueData.getAverage()/memory.size());
+            }
+        }
         return pnl;
     }
 
