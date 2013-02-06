@@ -90,14 +90,22 @@ public class CorrelatorPoolAnalytics extends Processing {
         }
         else if(message.startsWith("CORRELATOR"))
         {
+            pool.pauseFeed();
             String id = message.split(":")[1];
-            String dist = pool.getCorrelatorForID(id).getSuccssGrid().toString().replaceAll("\\}\\}|[ ]", "");
-            dist = dist.replaceAll("=\\{", ">");
-            dist = dist.replaceAll("\\},", "<");
-            dist = dist.replaceAll("=", "@");
-            dist = dist.substring(1);
-
-            sendMessage("SUCCESS_GRID", id + ";" + dist);
+            String dist = "";
+            if(pool.getCorrelatorForID(id) != null)
+            {
+                GenericCorrelator correlator = pool.getCorrelatorForID(id);
+                dist = correlator.getDistSkew();
+                GenericCorrelator aggressiveParent = correlator.getAggressiveParent();
+                GenericCorrelator passiveParent = correlator.getPassiveParent();
+                if(aggressiveParent == null || !pool.contains(aggressiveParent) || passiveParent == null || !pool.contains(passiveParent))
+                {
+                    correlator.killLineage();
+                }
+            }
+            pool.resumeFeed();
+            sendMessage("DIST_SKEW", id + ";" + dist);
         }
     }
 
@@ -120,6 +128,11 @@ public class CorrelatorPoolAnalytics extends Processing {
                 if(("" + sharpe).equals("NaN"))
                 {
                     sharpe = 0;
+                }
+
+                if(sharpe > 10)
+                {
+                    sharpe = 10;
                 }
 
                 message += "SHARPE=" + sharpe + ";";

@@ -23,12 +23,12 @@ public class DifferentialCorrelator extends GenericCorrelator{
 
         HashMap<String, Object> config = new HashMap<String, Object>(this.config);
         Random rand = new Random();
-        int timeSpan = rand.nextInt(4);
-        timeSpan = (int) Math.pow(10, timeSpan);
+        int timeSpan = rand.nextInt(8);
+        timeSpan = (int) Math.pow(2, timeSpan);
         while(timeSpan == (Integer) this.config.get("timeSpan"))
         {
-            timeSpan = rand.nextInt(4);
-            timeSpan = (int) Math.pow(10, timeSpan);
+            timeSpan = rand.nextInt(8);
+            timeSpan = (int) Math.pow(2, timeSpan);
         }
         config.put("timeSpan" , timeSpan);
 
@@ -39,7 +39,11 @@ public class DifferentialCorrelator extends GenericCorrelator{
     public String createState() {
 
         String state = null;
-
+        if((aggressiveParent == null || !pool.contains(aggressiveParent)) && (passiveParent == null || !pool.contains(passiveParent)))
+        {
+            killLineage();
+            return null;
+        }
         try{
             String type = (String) config.get("type");
             int timeSpan = (Integer) config.get("timeSpan");

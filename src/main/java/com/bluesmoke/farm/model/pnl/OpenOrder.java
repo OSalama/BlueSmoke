@@ -69,6 +69,22 @@ public class OpenOrder {
         return closed;
     }
 
+    public void close(double price)
+    {
+        current = price;
+
+        if(position == 'L')
+        {
+            pnl = current - open;
+        }
+        else
+        {
+            pnl = open - current;
+        }
+
+        successData = new double[]{takeProfit, open - current};
+    }
+
     public double getPnL()
     {
         return pnl;
@@ -87,6 +103,11 @@ public class OpenOrder {
     public char getPosition()
     {
         return position;
+    }
+
+    public boolean isClosed()
+    {
+        return closed;
     }
 
 }

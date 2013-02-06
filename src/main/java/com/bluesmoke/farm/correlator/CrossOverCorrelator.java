@@ -24,12 +24,12 @@ public class CrossOverCorrelator extends GenericCorrelator{
 
         HashMap<String, Object> config = new HashMap<String, Object>(this.config);
         Random rand = new Random();
-        int timeSpan = rand.nextInt(4);
-        timeSpan = (int) Math.pow(10, timeSpan);
+        int timeSpan = rand.nextInt(8);
+        timeSpan = (int) Math.pow(2, timeSpan);
         while(timeSpan == (Integer) this.config.get("timeSpan"))
         {
-            timeSpan = rand.nextInt(4);
-            timeSpan = (int) Math.pow(10, timeSpan);
+            timeSpan = rand.nextInt(8);
+            timeSpan = (int) Math.pow(2, timeSpan);
         }
         config.put("timeSpan" , timeSpan);
 
@@ -40,6 +40,11 @@ public class CrossOverCorrelator extends GenericCorrelator{
     public String createState() {
 
         String state = null;
+        if(aggressiveParent == null || !pool.contains(aggressiveParent) || passiveParent == null || !pool.contains(passiveParent))
+        {
+            killLineage();
+            return null;
+        }
         try{
             int timeSpan = (Integer) config.get("timeSpan");
             if(!config.containsKey("aggressiveUnderlying"))
@@ -132,7 +137,7 @@ public class CrossOverCorrelator extends GenericCorrelator{
 
             double cross = ((currentP - currentA)/(pastA - currentA + currentP - pastP)) * timeSpan;
 
-            currentUnderlyingComponents.put("crossover", cross);
+
 
             if(cross == Double.NEGATIVE_INFINITY || cross < -5)
             {
@@ -142,11 +147,8 @@ public class CrossOverCorrelator extends GenericCorrelator{
             {
                 cross = 5;
             }
-            if(cross == 0)
-            {
-                return "" + 0;
-            }
 
+            currentUnderlyingComponents.put("crossover", cross);
             int direction = 0;
             if(currentA > currentP)
             {
@@ -154,6 +156,11 @@ public class CrossOverCorrelator extends GenericCorrelator{
             }
 
             currentUnderlyingComponents.put("direction", direction);
+
+            if(cross == 0)
+            {
+                return "" + 0;
+            }
 
             state = "" + (int)(Math.signum(cross) * Math.log10(Math.abs(cross + 1))) + "," + direction;
         }

@@ -27,6 +27,7 @@ public class PassageOfTimeEmulationWorker implements Runnable
     }
 
     public void run() {
+        pool.activate();
         while (feedHasNext)
         {
             if(feed.isPaused())
@@ -66,14 +67,17 @@ public class PassageOfTimeEmulationWorker implements Runnable
         System.out.println("Run complete!");
     }
 
+    public void stop()
+    {
+        feedHasNext = false;
+    }
+
     public void die()
     {
         if(thread != null)
         {
-            thread.interrupt();
+            feedHasNext = false;
+            pool.reset();
         }
-
-        pool.reset();
-        feedHasNext = true;
     }
 }

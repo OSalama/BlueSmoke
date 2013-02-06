@@ -16,7 +16,8 @@ public class VCorrelatorPoolAnalytics extends VProcessingSVG{
 
     private VCorrelatorPlacer placer;
 
-    private VSuccessGrid grid;
+    //private VSuccessGrid grid;
+    private VDistSkew distSkew;
 
     private ApplicationConnection client;
     private String uidlId;
@@ -64,6 +65,11 @@ public class VCorrelatorPoolAnalytics extends VProcessingSVG{
         }
     }
 
+    public String getCorrelatorInfo(String id, String info)
+    {
+        return placer.getCorrelatorInfo(id, info);
+    }
+
     public void sendMessage(String message)
     {
         client.updateVariable(uidlId, "message", message, true);
@@ -74,7 +80,7 @@ public class VCorrelatorPoolAnalytics extends VProcessingSVG{
         doClear = false;
         frameRate(frameRate);
         setupComplete = true;
-        grid = new VSuccessGrid(this);
+        distSkew = new VDistSkew(this);
         buildUI();
     }
 
@@ -107,9 +113,9 @@ public class VCorrelatorPoolAnalytics extends VProcessingSVG{
             return;
         }
 
-        if(message.startsWith("SUCCESS_GRID->"))
+        if(message.startsWith("DIST_SKEW->"))
         {
-            grid.show(message.split("->")[1]);
+            distSkew.show(message.split("->")[1]);
             return;
         }
     }

@@ -65,6 +65,20 @@ public class VCorrelator implements Refreshable{
             }
         });
 
+        body.addMouseOverHandler(new MouseOverHandler() {
+            public void onMouseOver(MouseOverEvent event) {
+                body.setStrokeWidth(3);
+                body.setStrokeColor("white");
+                body.setStrokeOpacity(1);
+            }
+        });
+
+        body.addMouseOutHandler(new MouseOutHandler() {
+            public void onMouseOut(MouseOutEvent event) {
+                body.setStrokeOpacity(0);
+            }
+        });
+
         //popUp = new VHintPopUp(canvas, 10, 10);
 
         setDestX((int) canvas.random(canvas.width));

@@ -30,7 +30,9 @@ public class StateValueData {
     private double sum2PnL = 0;
     private long countClosed = 0;
 
-    private double sumWeights = 0;
+    public double sumWeights = 0;
+
+    private int maxAge = 1;
 
     private TreeMap<Long, OpenOrder> openOrders = new TreeMap<Long, OpenOrder>();
     private TreeMap<Integer, Double> collapsedDist = new TreeMap<Integer, Double>();
@@ -82,7 +84,7 @@ public class StateValueData {
         collapsedDist.put(distClass, collapsedDist.get(distClass) + 1);
     }
 
-    public void addObservedResult(double min, double max, long currentTime, String passCode) throws IllegalStateValueDataModificationException {
+    public void addObservedResult(double min, double max, double closeVal, long currentTime, String passCode) throws IllegalStateValueDataModificationException {
         if(!this.passCode.equals(passCode))
         {
             throw new IllegalStateValueDataModificationException();
@@ -116,50 +118,67 @@ public class StateValueData {
                         collapsedDist.put(i, 0.0);
                     }
                 }
-                for(int i = minClass; i <= maxClass; i++)
+                if(minClass != 0 && maxClass != 0)
                 {
-                    dist.get(timeClass).put(i, dist.get(timeClass).get(i) + weight);
-                    collapsedDist.put(i, collapsedDist.get(i) + weight);
+                    for(int i = minClass; i <= maxClass; i++)
+                    {
+                        dist.get(timeClass).put(i, dist.get(timeClass).get(i) + weight);
+                        collapsedDist.put(i, collapsedDist.get(i) + weight);
+                    }
                 }
                 sumWeights += weight;
                 boolean closed = false;
-                if(order.getPosition() == 'L')
+                if(!order.isClosed())
                 {
-                    closed = order.newPrice(min);
-                    if(!closed)
-                    {
-                        closed = order.newPrice(max);
-                    }
-                }
-                else {
-                    closed = order.newPrice(max);
-                    if(!closed)
+                    if(order.getPosition() == 'L')
                     {
                         closed = order.newPrice(min);
+                        if(Math.random() > 0.5) //(!closed)
+                        {
+                            closed = order.newPrice(max);
+                        }
+                    }
+                    else {
+                        closed = order.newPrice(max);
+                        if(Math.random() > 0.5) //(!closed)
+                        {
+                            closed = order.newPrice(min);
+                        }
+                    }
+
+                    if(!closed && (currentTime - orderNumber) > maxAge)
+                    {
+                        order.close(closeVal);
+                        closed = true;
+                    }
+
+                    if(closed)
+                    {
+                        double profit = weight * (order.getPnL()/res);
+                        //System.out.println("Order Closed from " + state + ": " + orderNumber + ": Profit: " + profit);
+
+                        pnl += profit;
+                        sum = pnl;
+                        sum2PnL += (profit*profit);
+                        sum2 = sum2PnL;
+                        correlator.pnl -= average;
+                        countClosed += weight;
+
+                        average = pnl/countClosed;
+                        correlator.pnl += average;
+                        correlator.stackPnL.addToStack(Math.signum(profit));
+
+                        double variance = Math.abs(sum2/countClosed - average);
+
+                        sdev = Math.sqrt(variance);
+                        double average2PnL = average*average;
+                        sharpe = Math.sqrt(average2PnL / variance);
                     }
                 }
 
-                if(closed)
+                if(closed && (currentTime - orderNumber) >= maxAge)
                 {
                     closedOrders.add(orderNumber);
-                    double profit = weight * (order.getPnL()/res);
-                    //System.out.println("Order Closed from " + state + ": " + orderNumber + ": Profit: " + profit);
-
-                    pnl += profit;
-                    sum = pnl;
-                    sum2PnL += (profit*profit);
-                    sum2 = sum2PnL;
-                    correlator.pnl -= average;
-                    countClosed += weight;
-
-                    average = pnl/countClosed;
-                    correlator.pnl += average;
-
-                    double variance = Math.abs(sum2/countClosed - average);
-
-                    sdev = Math.sqrt(variance);
-                    double average2PnL = average*average;
-                    sharpe = Math.sqrt(average2PnL / variance);
                 }
 
                 priority++;
@@ -196,12 +215,18 @@ public class StateValueData {
             if(weight/sumWeights > correlator.confidenceProfit)
             {
                 shortProfit = returnClass;
+                break;
             }
+        }
+
+        for(int returnClass : neg.descendingKeySet())
+        {
+            double weight = neg.get(returnClass);
             if(weight/sumWeights > correlator.confidenceLoss)
             {
                 shortLoss = returnClass;
+                break;
             }
-            //System.out.println(returnClass + " : " + weight);
         }
 
         int longProfit = 0;
@@ -212,23 +237,39 @@ public class StateValueData {
             if(weight/sumWeights > correlator.confidenceProfit)
             {
                 longProfit = returnClass;
+                break;
             }
+        }
+
+        for(int returnClass : pos.keySet())
+        {
+            double weight = pos.get(returnClass);
             if(weight/sumWeights > correlator.confidenceLoss)
             {
                 longLoss = returnClass;
+                break;
             }
-            //System.out.println(returnClass + " : " + weight);
+        }
+        if(longProfit == 0)
+        {
+            longProfit = (int) (10 * Math.random());
+        }
+        if(shortProfit == 0)
+        {
+            shortProfit = (int) (-10 * Math.random());
         }
 
         double takeProfit = price + (longProfit*res);
-        double stopLoss = price - (shortLoss*res);
+        //double stopLoss = price - (shortLoss*res);
+        double stopLoss = price - (longProfit*res);
         if(Math.abs(shortProfit) > longProfit)
         {
-            takeProfit = price - (shortProfit*res);
-            stopLoss = price + (longLoss*res);
+            takeProfit = price + (shortProfit*res);
+            //stopLoss = price + (longLoss*res);
+            stopLoss = price - (shortProfit*res);
         }
-        //System.out.println("New Order from " + state + ": " + orderNumber + ": " + price + " " + takeProfit + " " + stopLoss);
         openOrders.put(orderNumber, new OpenOrder("" + orderNumber, price, takeProfit, stopLoss));
+        //System.out.println("New Order from " + state + ": " + orderNumber + ": " + price + " " + takeProfit + " " + stopLoss);
     }
 
     public String getState() {
@@ -262,6 +303,10 @@ public class StateValueData {
 
     public String getStateComponent(int index)
     {
+        if(stateComponents.size() <= index)
+        {
+            return null;
+        }
         return stateComponents.get(index);
     }
 
@@ -272,5 +317,9 @@ public class StateValueData {
 
     public TreeMap<Integer, TreeMap<Integer, Double>> getDist() {
         return dist;
+    }
+
+    public TreeMap<Integer, Double> getCollapsedDist() {
+        return collapsedDist;
     }
 }

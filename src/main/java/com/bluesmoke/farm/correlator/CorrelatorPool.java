@@ -22,6 +22,8 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     private TreeMap<String, GenericCorrelator> correlators = new TreeMap<String, GenericCorrelator>();
     private ArrayList<GenericCorrelator> toKill = new ArrayList<GenericCorrelator>();
 
+    private ArrayList<GenericCorrelator> clonesToAdd = new ArrayList<GenericCorrelator>();
+
     private TreeMap<Integer, Set<GenericCorrelator>> generationPools = new TreeMap<Integer, Set<GenericCorrelator>>();
 
     private Tick currentTick;
@@ -91,7 +93,6 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     public synchronized void onNewTick(Tick tick) {
         long tStart = System.currentTimeMillis();
         currentTick = tick;
-
         for(Map.Entry<Integer,Set<GenericCorrelator>> generation : generationPools.entrySet())
         {
             Set<GenericCorrelator> generationCorrelators = generation.getValue();
@@ -102,7 +103,6 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
                     correlator.setReady();
                 }
             }
-
             for(GenericCorrelator correlator : generationCorrelators)
             {
                 while (correlator.getProcessingStage() != 'F')
@@ -146,6 +146,7 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
             }
             //System.out.println("Generation " + generation.getKey() + " finished processing");
         }
+
         removeKilled();
         long tEnd = System.currentTimeMillis();
 
@@ -179,23 +180,33 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
 
     public void causeBreedingWave()
     {
-        int maxPop = (maxPopulation / 10) * (generationPools.size());
-        if(maxPop > maxPopulation)
-        {
-            maxPop = maxPopulation;
-        }
-        double threshold = Math.pow((double) size() / maxPop, 0.0675);
         List<GenericCorrelator> correlators = new ArrayList<GenericCorrelator>(this);
+
+        TreeMap<Double, GenericCorrelator> randMap = new TreeMap<Double, GenericCorrelator>();
         for(GenericCorrelator correlator : correlators)
         {
-            if(Math.random() > threshold)
+            double key = correlator.getAge() / (correlator.children.size() + 1) * correlator.getGeneration();
+            if(key == 0)
             {
-                if(correlator.getAge() > 2000)
+                key = 1 + Math.random();
+            }
+            key = Math.random() * Math.log(key);
+            randMap.put(key, correlator);
+        }
+        int spawnings = 0;
+        for(GenericCorrelator correlator : randMap.descendingMap().values())
+        {
+            if(spawnings < (maxPopulation - (correlators.size() + spawnings))/5)
+            {
+                if(correlator.getAge() > 2500
+                        && correlator.children.size() < 3)
                 {
                     correlator.spawn();
-                    if(correlator.getGeneration() == currentMaxGen)
+                    spawnings++;
+                    if(correlator.children.size() == 0)
                     {
                         correlator.spawn();
+                        spawnings++;
                     }
                 }
             }
@@ -228,9 +239,9 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
             else
             {
                 double pnl = correlator.getPnL();
-                if(correlator.children.size() == 0 && correlator.getAge() > 5000 && correlator.getPnL() != 0)
+                if(correlator.children.size() == 0 && correlator.getAge() > 2500 && correlator.getPnL() != 0)
                 {
-                    dieableCorrelators.put(Math.log(pnl - minPnL + 1)*Math.random(), correlator);
+                    dieableCorrelators.put(pnl*Math.random(), correlator);
                 }
             }
         }
@@ -239,7 +250,7 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
         for(GenericCorrelator correlator : dieableCorrelators.values())
         {
             i++;
-            if(i > dieableCorrelators.size()/0.5)
+            if(i > dieableCorrelators.size()/2)
             {
                 break;
             }
@@ -258,6 +269,12 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
     {
         feed.resume();
         active = true;
+        for(GenericCorrelator clone : clonesToAdd)
+        {
+            addCorrelator(clone);
+        }
+        clonesToAdd.clear();
+
         for(GenericCorrelator correlator : this)
         {
             correlator.start();
@@ -276,10 +293,15 @@ public class CorrelatorPool extends ArrayList<GenericCorrelator> implements Feed
             {
                 e.printStackTrace();
             }
-            correlator.reset();
         }
+        removeKilled();
         feed.pause();
         feed.reset();
+    }
+
+    public synchronized void addClone(GenericCorrelator clone)
+    {
+        clonesToAdd.add(clone);
     }
 
     public synchronized void toKill(GenericCorrelator correlator)

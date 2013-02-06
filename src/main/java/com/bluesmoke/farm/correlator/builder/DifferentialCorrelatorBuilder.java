@@ -4,6 +4,7 @@ import com.bluesmoke.farm.correlator.CorrelatorPool;
 import com.bluesmoke.farm.correlator.DifferentialCorrelator;
 import com.bluesmoke.farm.correlator.GenericCorrelator;
 import com.bluesmoke.farm.service.feed.FeedService;
+import com.bluesmoke.farm.util.ListElement;
 
 import java.util.HashMap;
 import java.util.Random;
@@ -37,15 +38,47 @@ public class DifferentialCorrelatorBuilder implements CorrelatorBuilder {
         boolean valid = false;
 
         double score = Double.NEGATIVE_INFINITY;
+        double minOrthogonality = Double.POSITIVE_INFINITY;
         GenericCorrelator passiveParent = null;
         for(GenericCorrelator candidate : pool)
         {
-            if(candidate != parent && candidate.getAge() > 1000 && !candidate.isStateLess())
+            if(candidate != parent
+                    && candidate.getAge() > 1000
+                    && !candidate.isStateLess()
+                    && !parent.isStateLess()
+                    && parent.stackPnL.getHead() != null
+                    && candidate.stackPnL.getHead() != null
+                    && candidate.getNumberOfChildren() < 3)
             {
-                double random = Math.random();
+                double random = 1 + Math.random()/2;
                 if(random*candidate.getPnL() > score)
                 {
-                    score = random*candidate.getPnL();
+                    ListElement<Double> aP = parent.stackPnL.getHead();
+                    ListElement<Double> pP = candidate.stackPnL.getHead();
+                    double orthogonality = 0;
+                    while(true)
+                    {
+                        orthogonality += aP.getData() * pP.getData();
+                        if(aP.getPrevious() == null || pP.getPrevious() == null)
+                        {
+                            break;
+                        }
+                        aP = aP.getPrevious();
+                        pP = pP.getPrevious();
+                    }
+                    orthogonality = Math.abs(orthogonality);
+                    if(orthogonality < minOrthogonality)
+                    {
+                        minOrthogonality = orthogonality;
+                        score = random*candidate.getPnL();
+                        passiveParent = candidate;
+                    }
+                }
+            }
+            else if(candidate != parent && candidate.getAge() > 1000)
+            {
+                if(Math.random() > 0.9 && candidate.getNumberOfChildren() < 3)
+                {
                     passiveParent = candidate;
                 }
             }

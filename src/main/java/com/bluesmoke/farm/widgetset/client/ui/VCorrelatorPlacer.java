@@ -29,6 +29,11 @@ public class VCorrelatorPlacer implements Refreshable{
         canvas.addRefreshable(this);
     }
 
+    public String getCorrelatorInfo(String id, String info)
+    {
+        return correlators.get(id).information.get(info).toString();
+    }
+
     public void batch()
     {
         preBatchSnapShot.removeAll(currentBatch);

@@ -5,6 +5,7 @@ import com.bluesmoke.farm.correlator.DescendantCorrelator;
 import com.bluesmoke.farm.correlator.GenericCorrelator;
 import com.bluesmoke.farm.enumeration.descendant.config.PassiveParentConfig;
 import com.bluesmoke.farm.service.feed.FeedService;
+import com.bluesmoke.farm.util.ListElement;
 
 import java.util.*;
 
@@ -62,17 +63,46 @@ public class DescendantCorrelatorBuilder implements CorrelatorBuilder {
     }
 
     public void build(GenericCorrelator parent) {
+        if(parent.isStateLess())
+        {
+            return;
+        }
+
         double score = Double.NEGATIVE_INFINITY;
+        double minOrthogonality = Double.POSITIVE_INFINITY;
         GenericCorrelator mate = null;
         for(GenericCorrelator candidate : pool)
         {
-            if(candidate != parent && candidate.getAge() > 1000 && !candidate.isStateLess())
+            if(candidate != parent
+                    && candidate.getAge() > 1000
+                    && !candidate.isStateLess()
+                    && parent.stackPnL.getHead() != null
+                    && candidate.stackPnL.getHead() != null
+                    && candidate.getNumberOfChildren() < 3)
             {
-                double rand = Math.random();
+                double rand = 1 + Math.random()/2;
                 if(rand*candidate.getPnL() > score)
                 {
-                    score = rand*candidate.getPnL();
-                    mate = candidate;
+                    ListElement<Double> aP = parent.stackPnL.getHead();
+                    ListElement<Double> pP = candidate.stackPnL.getHead();
+                    double orthogonality = 0;
+                    while(true)
+                    {
+                        orthogonality += aP.getData() * pP.getData();
+                        if(aP.getPrevious() == null || pP.getPrevious() == null)
+                        {
+                            break;
+                        }
+                        aP = aP.getPrevious();
+                        pP = pP.getPrevious();
+                    }
+                    orthogonality = (Math.random() * Math.abs(orthogonality));
+                    if(orthogonality < minOrthogonality)
+                    {
+                        minOrthogonality = orthogonality;
+                        score = rand*candidate.getPnL();
+                        mate = candidate;
+                    }
                 }
             }
         }
@@ -80,12 +110,6 @@ public class DescendantCorrelatorBuilder implements CorrelatorBuilder {
         {
             GenericCorrelator aggressiveParent = parent;
             GenericCorrelator passiveParent = mate;
-
-            if(Math.random() > 0.5)
-            {
-                aggressiveParent = mate;
-                passiveParent = parent;
-            }
 
             build(aggressiveParent, passiveParent);
         }

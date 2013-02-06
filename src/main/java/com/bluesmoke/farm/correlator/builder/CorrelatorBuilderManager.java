@@ -20,6 +20,7 @@ public class CorrelatorBuilderManager {
         builders.put(new DescendantCorrelatorBuilder(pool, feed, this), 0.5);
         builders.put(new DifferentialCorrelatorBuilder(pool, feed, this), 0.5);
         builders.put(new CrossOverCorrelatorBuilder(pool, feed, this), 0.5);
+        builders.put(new DateTimeCorrelatorBuilder(pool, feed, this), 0.1);
     }
 
     public void addBuilder(CorrelatorBuilder builder, double aggressivity)

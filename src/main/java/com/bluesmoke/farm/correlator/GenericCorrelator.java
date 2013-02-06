@@ -22,6 +22,10 @@ public abstract class GenericCorrelator extends Thread{
     private String passCode;
     private long age = 0;
 
+    public boolean usesParentStates = false;
+
+    private boolean lineageKilled = false;
+
     private long breedingAge;
 
     public double pnl = 0;
@@ -32,7 +36,7 @@ public abstract class GenericCorrelator extends Thread{
     protected String currentStateValueID;
     protected TreeMap<String, Object> currentUnderlyingComponents;
 
-    protected Pair pair;
+    protected Pair pair = Pair.EURUSD;
 
     protected GenericCorrelator aggressiveParent;
     protected GenericCorrelator passiveParent;
@@ -41,8 +45,8 @@ public abstract class GenericCorrelator extends Thread{
 
     protected int numTicksObserved;
     protected double resolution;
-    public double confidenceProfit = 0.6;
-    public double confidenceLoss = 0.1;
+    public double confidenceProfit = 0.5;
+    public double confidenceLoss = confidenceProfit;
 
     protected ArrayList<Tick> ticks = new ArrayList<Tick>();
     protected Tick currentTick;
@@ -56,6 +60,7 @@ public abstract class GenericCorrelator extends Thread{
     protected TreeMap<String, StateValueData> memory = new TreeMap<String, StateValueData>();
     protected FixedSizeStackArrayList<StateValueData> stackStateValueData = new FixedSizeStackArrayList<StateValueData>(5000);
     protected FixedSizeStackArrayList<TreeMap<String, Object>> stackUnderlyingComponents = new FixedSizeStackArrayList<TreeMap<String, Object>>(5000);
+    public FixedSizeStackArrayList<Double> stackPnL = new FixedSizeStackArrayList<Double>(5000);
 
     protected HashSet<StateValueData> aliveStates = new HashSet<StateValueData>();
     protected HashSet<StateValueData> aliveStatesToAdd = new HashSet<StateValueData>();
@@ -96,38 +101,41 @@ public abstract class GenericCorrelator extends Thread{
             this.config = config;
         }
 
+        setBreedingAge(10000);
+        Random rand = new Random();
+        setNumberTicksObserved((int) Math.pow(2, rand.nextInt(7) + 1));
+
         if(aggressiveParent != null)
         {
             this.setBreedingAge(aggressiveParent.getBreedingAge());
             this.setNumberTicksObserved(aggressiveParent.getNumTicksObserved());
         }
-        else {
-            Random rand = new Random();
-            setNumberTicksObserved((int) Math.pow(2, rand.nextInt(7) + 1));
-            setBreedingAge(10000);
-        }
 
-        TreeMap<Double, Pair> randMap = new TreeMap<Double, Pair>();
-        for(Pair pair : Pair.values())
+        if(this.config.containsKey("cloning_config:numTicksObserved"))
         {
-            randMap.put(Math.random(), pair);
+            setNumberTicksObserved((Integer) config.get("cloning_config:numTicksObserved"));
+            this.config.remove("cloning_config:numTicksObserved");
         }
 
-        Pair trackedPair = randMap.firstEntry().getValue();
+        if(this.config.containsKey("cloning_config:stateLess"))
+        {
+            stateLess = ((Boolean) config.get("cloning_config:stateLess"));
+            this.config.remove("cloning_config:stateLess");
+        }
 
-        setTrackedPairAndMetric(trackedPair);
+        setTrackedPair(Pair.EURUSD);
 
         setConfidenceLevels();
 
         pool.addCorrelator(this);
     }
 
-    public void toInterrupt()
+    public synchronized void toInterrupt()
     {
         toInterrupt = true;
     }
 
-    public void reset()
+    public synchronized void reset()
     {
         correlatorData.clear();
         stackStateValueData.clear();
@@ -135,6 +143,8 @@ public abstract class GenericCorrelator extends Thread{
         memory.clear();
         processingStage = 'F';
         age = 0;
+
+        killLineage();
     }
 
     public void addChild(GenericCorrelator child)
@@ -142,7 +152,7 @@ public abstract class GenericCorrelator extends Thread{
         children.add(child);
     }
 
-    public void setTrackedPairAndMetric(Pair pair)
+    public void setTrackedPair(Pair pair)
     {
         this.pair = pair;
         config.put("pair", pair);
@@ -165,7 +175,7 @@ public abstract class GenericCorrelator extends Thread{
 
     public void setConfidenceLevels()
     {
-        if(config.containsKey("confidenceProfit"))
+        /*if(config.containsKey("confidenceProfit"))
         {
             confidenceProfit = (Double)config.get("confidenceProfit") + Math.random()/10 - 0.05;
         }
@@ -178,13 +188,13 @@ public abstract class GenericCorrelator extends Thread{
         }
         else {
             confidenceLoss = Math.random()/2;
-        }
+        }*/
+
         config.put("confidenceProfit", confidenceProfit);
         config.put("confidenceLoss", confidenceLoss);
-
     }
 
-    public StateValueData getCurrentStateValueData()
+    public synchronized StateValueData getCurrentStateValueData()
     {
         if(stackStateValueData.size() > 0)
         {
@@ -223,20 +233,19 @@ public abstract class GenericCorrelator extends Thread{
     public void run()
     {
         System.out.println(id + " started...");
-        while (alive)
+        while (alive && !toInterrupt)
         {
-            while (processingStage != 'R')
+            while (processingStage != 'R' && !toInterrupt)
             {
                 try {
                     Thread.sleep(0,1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                if(toInterrupt)
-                {
-                    toInterrupt = false;
-                    interrupt();
-                }
+            }
+            if(toInterrupt)
+            {
+                break;
             }
             processingStage = 'P';
             Tick tick = pool.getCurrentTick();
@@ -255,6 +264,22 @@ public abstract class GenericCorrelator extends Thread{
                 ticks.add(tick);
                 if(ticks.size() > numTicksObserved)
                 {
+                    if(!stateLess)
+                    {
+                        refreshAliveStates();
+                        for(StateValueData stateValueData : aliveStates)
+                        {
+                            try
+                            {
+                                stateValueData.addObservedResult(tick.getPairData(pair.name()).getLow(), tick.getPairData(pair.name()).getHigh(), tick.getPairData(pair.name()).getClose(), age, passCode);
+                            }
+                            catch (IllegalStateValueDataModificationException e)
+                            {
+                                e.printStackTrace();
+                            }
+                        }
+                        refreshAliveStates();
+                    }
                     ticks.remove(0);
 
                     //TODO
@@ -297,47 +322,33 @@ public abstract class GenericCorrelator extends Thread{
                         else {
                             stackStateValueData.addToStack(null);
                         }
-
-                        for(StateValueData stateValueData : aliveStates)
-                        {
-                            try
-                            {
-                                stateValueData.addObservedResult(tick.getPairData(pair.name()).getLow(), tick.getPairData(pair.name()).getHigh(), age, passCode);
-                            }
-                            catch (IllegalStateValueDataModificationException e)
-                            {
-                                e.printStackTrace();
-                            }
-                        }
-                        refreshAliveStates();
                     }
                 }
             }
             processingStage = 'F';
-            if(toInterrupt)
-            {
-                toInterrupt = false;
-                interrupt();
-            }
         }
         if(toInterrupt)
         {
             toInterrupt = false;
             interrupt();
+            if(alive)
+            {
+                reset();
+            }
         }
         System.out.println("Correlator " + id + " ended...");
     }
 
-    public void addLiveState(StateValueData stateValueData)
+    public synchronized void addLiveState(StateValueData stateValueData)
     {
         aliveStatesToAdd.add(stateValueData);
     }
-    public void removeLiveState(StateValueData stateValueData)
+    public synchronized void removeLiveState(StateValueData stateValueData)
     {
         aliveStatesToKill.add(stateValueData);
     }
 
-    private void refreshAliveStates()
+    private synchronized void refreshAliveStates()
     {
         aliveStates.addAll(aliveStatesToAdd);
         aliveStates.removeAll(aliveStatesToKill);
@@ -345,12 +356,12 @@ public abstract class GenericCorrelator extends Thread{
         aliveStatesToKill.clear();
     }
 
-    public void setReady()
+    public synchronized void setReady()
     {
         processingStage = 'R';
     }
 
-    public void die()
+    public synchronized void die()
     {
         if(pool.size() > 10 && Math.random()*age > 1000)
         {
@@ -373,7 +384,7 @@ public abstract class GenericCorrelator extends Thread{
         }
     }
 
-    public void forcedie()
+    public synchronized void forcedie()
     {
         if(children.size() == 0)
         {
@@ -393,22 +404,31 @@ public abstract class GenericCorrelator extends Thread{
         }
     }
 
-    public void killLineage()
+    public synchronized void killLineage()
     {
-        for(GenericCorrelator child : children)
+        if(!lineageKilled)
         {
-            child.killLineage();
+            lineageKilled = true;
+            for(GenericCorrelator child : children)
+            {
+                child.killLineage();
+            }
+            forcedie();
         }
-        forcedie();
     }
 
-    public void setStateLess()
+    public synchronized void setStateLess()
     {
         memory.clear();
         stackStateValueData.clear();
+        stackPnL.clear();
         for(GenericCorrelator child : children)
         {
-            if(this == child.passiveParent)
+            /*if(this == child.passiveParent)
+            {
+                child.killLineage();
+            }*/
+            if(child.usesParentStates)
             {
                 child.killLineage();
             }
@@ -416,12 +436,17 @@ public abstract class GenericCorrelator extends Thread{
         pnl = 0;
     }
 
-    public boolean isStateLess()
+    public synchronized boolean isStateLess()
     {
         return stateLess;
     }
 
-    public void childDeath(GenericCorrelator child)
+    public synchronized int getNumberOfChildren()
+    {
+        return children.size();
+    }
+
+    public synchronized void childDeath(GenericCorrelator child)
     {
         children.remove(child);
     }
@@ -469,7 +494,7 @@ public abstract class GenericCorrelator extends Thread{
         return resolution;
     }
 
-    public char getProcessingStage()
+    public synchronized char getProcessingStage()
     {
         return processingStage;
     }
@@ -479,7 +504,7 @@ public abstract class GenericCorrelator extends Thread{
         return stateComponentsNumber;
     }
 
-    public double getSharpe()
+    public synchronized double getSharpe()
     {
         double sharpe = 0;
         for(StateValueData stateValueData : memory.values())
@@ -492,22 +517,22 @@ public abstract class GenericCorrelator extends Thread{
         return sharpe;
     }
 
-    public Map<String, Object> getCurrentUnderlyingComponents()
+    public synchronized Map<String, Object> getCurrentUnderlyingComponents()
     {
         return currentUnderlyingComponents;
     }
 
-    public Set<String> getUnderlyingComponentNames()
+    public synchronized Set<String> getUnderlyingComponentNames()
     {
         return currentUnderlyingComponents.keySet();
     }
 
-    public Map<String, Object> getConfig()
+    public synchronized Map<String, Object> getConfig()
     {
         return new TreeMap<String, Object>(config);
     }
 
-    public double getPnL()
+    public synchronized double getPnL()
     {
         pnl = 0;
         for(StateValueData stateValueData : memory.values())
@@ -520,12 +545,74 @@ public abstract class GenericCorrelator extends Thread{
         return pnl;
     }
 
-    public TreeMap<Integer, TreeMap<Integer, Long>> getSuccssGrid()
+    public synchronized TreeMap<Integer, TreeMap<Integer, Long>> getSuccssGrid()
     {
         return successGrid;
     }
 
-    public String getHandlesInfo()
+    public synchronized String getDistSkew()
+    {
+        String dist = "";
+        TreeMap<Integer, Double> distSkew = new TreeMap<Integer, Double>();
+
+        for(StateValueData stateValueData : memory.values())
+        {
+            TreeMap<Integer, Double> neg = new TreeMap<Integer, Double>(stateValueData.getCollapsedDist().headMap(0));
+            SortedMap<Integer, Double> pos = stateValueData.getCollapsedDist().tailMap(0);
+
+            int shortProfit = 0;
+
+            for(int returnClass : neg.descendingKeySet())
+            {
+                double weight = neg.get(returnClass);
+                if(weight/stateValueData.sumWeights > confidenceProfit)
+                {
+                    shortProfit = returnClass;
+                }
+            }
+
+            int longProfit = 0;
+            for(int returnClass : pos.keySet())
+            {
+                double weight = pos.get(returnClass);
+                if(weight/stateValueData.sumWeights > confidenceProfit)
+                {
+                    longProfit = returnClass;
+                }
+            }
+
+            if(longProfit > shortProfit)
+            {
+                for(Map.Entry<Integer, Double> entry : stateValueData.getCollapsedDist().entrySet())
+                {
+                    if(!distSkew.containsKey(entry.getKey()))
+                    {
+                        distSkew.put(entry.getKey(), 0.0);
+                    }
+                    distSkew.put(entry.getKey(), distSkew.get(entry.getKey()) + entry.getValue());
+                }
+            }
+            else {
+                for(Map.Entry<Integer, Double> entry : stateValueData.getCollapsedDist().entrySet())
+                {
+                    if(!distSkew.containsKey(-entry.getKey()))
+                    {
+                        distSkew.put(-entry.getKey(), 0.0);
+                    }
+                    distSkew.put(-entry.getKey(), distSkew.get(-entry.getKey()) + entry.getValue());
+                }
+            }
+        }
+
+        for(Map.Entry<Integer, Double> entry : distSkew.entrySet())
+        {
+            dist += entry.getKey() + "=" + entry.getValue() + ",";
+        }
+
+        return dist;
+    }
+
+    public synchronized String getHandlesInfo()
     {
         String info = "Correlator: " + id + "\n";
         info += "Children: " + children.size() + "\n";

@@ -214,7 +214,7 @@ public class Launcher extends Application {
                 try
                 {
                     emulator.startEmulation();
-                    correlatorPool.activate();
+                    //emulator.run();
                 }
                 catch (Exception e)
                 {
@@ -232,6 +232,7 @@ public class Launcher extends Application {
                 try
                 {
                     emulator.die();
+                    //emulator.stop();
                 }
                 catch (Exception e)
                 {
@@ -267,8 +268,8 @@ public class Launcher extends Application {
         testInit.addListener(new Button.ClickListener() {
             public void buttonClick(Button.ClickEvent event) {
                 feed.reset();
-                //feedsPath = "C:\\Users\\Oblene\\Desktop\\Sandbox\\Data";
-                feedsPath = "/app/testing/hans/WebApps/Data";
+                feedsPath = "C:\\Users\\Oblene\\Desktop\\Sandbox\\Data";
+                //feedsPath = "/app/testing/hans/WebApps/Data";
                 feed.setFeedsPath(feedsPath);
                 buildFeedSelect();
 
@@ -288,8 +289,11 @@ public class Launcher extends Application {
                                 "import com.bluesmoke.farm.correlator.builder.CorrelatorBuilderManager;\n" +
                                 "import com.bluesmoke.farm.model.tickdata.Tick;\n" +
                                 "import com.bluesmoke.farm.service.feed.FeedService;\n" +
+                                "import com.bluesmoke.farm.enumeration.PairResolution;\n" +
+                                "import com.bluesmoke.farm.enumeration.Pair;\n" +
                                 "\n" +
                                 "import java.util.HashMap;\n" +
+                                "import java.util.TreeMap;\n" +
                                 "import java.util.Random;\n" +
                                 "\n" +
                                 "public class MovingAverageCorrelator extends GenericCorrelator{\n" +
@@ -297,12 +301,24 @@ public class Launcher extends Application {
                                 "    private int refresh = 0;\n" +
                                 "    private double ma;\n" +
                                 "    private double sum = 0;\n" +
+                                "    private Pair statePair;" +
+                                "    private double statePairResolution;" +
                                 "\n" +
                                 "    public MovingAverageCorrelator(String id, CorrelatorBuilderManager correlatorBuilderManager, CorrelatorPool pool, FeedService feed, GenericCorrelator aggressiveParent, GenericCorrelator passiveParent, HashMap<String, Object> config)\n" +
                                 "    {\n" +
                                 "        super(\"MovingAverage_\" + pool.getNextID(), correlatorBuilderManager, pool, feed, aggressiveParent, passiveParent, config);\n" +
                                 "        Random rand = new Random();\n" +
                                 "        this.config.put(\"price_type\", rand.nextInt(4));\n"+
+                                "        TreeMap<Double, Pair> randMap = new TreeMap<Double, Pair>();\n" +
+                                "        for(Pair pair : Pair.values())\n" +
+                                "        {\n" +
+                                "            randMap.put(Math.random(), pair);\n" +
+                                "        }\n" +
+                                "\n" +
+                                "        statePair = randMap.firstEntry().getValue();" +
+                                "        this.config.put(\"statePair\", statePair);\n" +
+                                "        statePairResolution = PairResolution.getResolution(statePair);\n" +
+                                "        this.config.put(\"statePairResolution\", statePairResolution);" +
                                 "    }\n" +
                                 "\n" +
                                 "\n" +
@@ -325,16 +341,16 @@ public class Launcher extends Application {
                                 "                   switch ((Integer)config.get(\"price_type\"))\n" +
                                 "                   {\n" +
                                 "                       case 0:\n" +
-                                "                           price = tick.getPairData(pair.name()).getOpen();\n" +
+                                "                           price = tick.getPairData(statePair.name()).getOpen();\n" +
                                 "                           break;\n" +
                                 "                       case 1:\n" +
-                                "                           price = tick.getPairData(pair.name()).getClose();\n" +
+                                "                           price = tick.getPairData(statePair.name()).getClose();\n" +
                                 "                           break;\n" +
                                 "                       case 2:\n" +
-                                "                           price = tick.getPairData(pair.name()).getHigh();\n" +
+                                "                           price = tick.getPairData(statePair.name()).getHigh();\n" +
                                 "                           break;\n" +
                                 "                       case 3:\n" +
-                                "                           price = tick.getPairData(pair.name()).getLow();\n" +
+                                "                           price = tick.getPairData(statePair.name()).getLow();\n" +
                                 "                           break;\n" +
                                 "                   }" +
 
@@ -354,20 +370,20 @@ public class Launcher extends Application {
                                 "           switch ((Integer)config.get(\"price_type\"))\n" +
                         "                   {\n" +
                         "                       case 0:\n" +
-                        "                           priceRemove = ticks.get(0).getPairData(pair.name()).getOpen();\n" +
-                        "                           priceAdd = currentTick.getPairData(pair.name()).getOpen();\n" +
+                        "                           priceRemove = ticks.get(0).getPairData(statePair.name()).getOpen();\n" +
+                        "                           priceAdd = currentTick.getPairData(statePair.name()).getOpen();\n" +
                         "                           break;\n" +
                         "                       case 1:\n" +
-                        "                           priceRemove = ticks.get(0).getPairData(pair.name()).getClose();\n" +
-                        "                           priceAdd = currentTick.getPairData(pair.name()).getClose();\n" +
+                        "                           priceRemove = ticks.get(0).getPairData(statePair.name()).getClose();\n" +
+                        "                           priceAdd = currentTick.getPairData(statePair.name()).getClose();\n" +
                         "                           break;\n" +
                         "                       case 2:\n" +
-                        "                           priceRemove = ticks.get(0).getPairData(pair.name()).getHigh();\n" +
-                        "                           priceAdd = currentTick.getPairData(pair.name()).getHigh();\n" +
+                        "                           priceRemove = ticks.get(0).getPairData(statePair.name()).getHigh();\n" +
+                        "                           priceAdd = currentTick.getPairData(statePair.name()).getHigh();\n" +
                         "                           break;\n" +
                         "                       case 3:\n" +
-                        "                           priceRemove = ticks.get(0).getPairData(pair.name()).getLow();\n" +
-                        "                           priceAdd = currentTick.getPairData(pair.name()).getLow();\n" +
+                        "                           priceRemove = ticks.get(0).getPairData(statePair.name()).getLow();\n" +
+                        "                           priceAdd = currentTick.getPairData(statePair.name()).getLow();\n" +
                         "                           break;\n" +
                         "                   }" +
                                 "            sum -= priceRemove;\n" +
@@ -376,7 +392,7 @@ public class Launcher extends Application {
                                 "        }\n" +
                                 "        currentUnderlyingComponents.put(\"MA\", ma);\n" +
                                 "        refresh--;\n" +
-                                "        return \"\" + (int)(ma/(100 * resolution));\n" +
+                                "        return \"\" + (int)(ma/(100 * statePairResolution));\n" +
                                 "    }\n" +
                                 "}\n",
                         correlatorBuilderManager,
@@ -390,17 +406,33 @@ public class Launcher extends Application {
                                 "import com.bluesmoke.farm.correlator.builder.CorrelatorBuilderManager;\n" +
                                 "import com.bluesmoke.farm.model.tickdata.Tick;\n" +
                                 "import com.bluesmoke.farm.service.feed.FeedService;\n" +
+                                "import com.bluesmoke.farm.enumeration.PairResolution;\n" +
+                                "import com.bluesmoke.farm.enumeration.Pair;\n"+
                                 "\n" +
                                 "import java.util.HashMap;\n" +
+                                "import java.util.TreeMap;\n" +
                                 "import java.util.Random;\n" +
                                 "\n" +
                                 "public class PriceCorrelator extends GenericCorrelator{\n" +
                                 "\n" +
+                                "    private Pair statePair;" +
+                                "    private double statePairResolution;" +
                                 "    public PriceCorrelator(String id, CorrelatorBuilderManager correlatorBuilderManager, CorrelatorPool pool, FeedService feed, GenericCorrelator aggressiveParent, GenericCorrelator passiveParent, HashMap<String, Object> config)\n" +
                                 "    {\n" +
                                 "        super(\"Price_\" + pool.getNextID(), correlatorBuilderManager, pool, feed, aggressiveParent, passiveParent, config);\n" +
                                 "        Random rand = new Random();\n" +
                                 "        this.config.put(\"price_type\", rand.nextInt(4));\n" +
+                                "        " +
+                                "        TreeMap<Double, Pair> randMap = new TreeMap<Double, Pair>();\n" +
+                                "        for(Pair pair : Pair.values())\n" +
+                                "        {\n" +
+                                "            randMap.put(Math.random(), pair);\n" +
+                                "        }\n" +
+                                "\n" +
+                                "        statePair = randMap.firstEntry().getValue();" +
+                                "        this.config.put(\"statePair\", statePair);\n" +
+                                "        statePairResolution = PairResolution.getResolution(statePair);\n" +
+                                "        this.config.put(\"statePairResolution\", statePairResolution);" +
                                 "    }\n" +
                                 "\n" +
                                 "\n" +
@@ -416,20 +448,20 @@ public class Launcher extends Application {
                                 "        switch ((Integer)config.get(\"price_type\"))\n" +
                                 "        {\n" +
                                 "            case 0:\n" +
-                                "                price = currentTick.getPairData(pair.name()).getOpen();\n" +
+                                "                price = currentTick.getPairData(statePair.name()).getOpen();\n" +
                                 "                break;\n" +
                                 "            case 1:\n" +
-                                "                price = currentTick.getPairData(pair.name()).getClose();\n" +
+                                "                price = currentTick.getPairData(statePair.name()).getClose();\n" +
                                 "                break;\n" +
                                 "            case 2:\n" +
-                                "                price = currentTick.getPairData(pair.name()).getHigh();\n" +
+                                "                price = currentTick.getPairData(statePair.name()).getHigh();\n" +
                                 "                break;\n" +
                                 "            case 3:\n" +
-                                "                price = currentTick.getPairData(pair.name()).getLow();\n" +
+                                "                price = currentTick.getPairData(statePair.name()).getLow();\n" +
                                 "                break;\n" +
                                 "        }\n" +
                                 "        currentUnderlyingComponents.put(\"price\", price);\n" +
-                                "        return \"\" + (int)(price/(10 * resolution));\n" +
+                                "        return \"\" + (int)(price/(10 * statePairResolution));\n" +
                                 "    }\n" +
                                 "}\n",
                         correlatorBuilderManager,

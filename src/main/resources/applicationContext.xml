@@ -11,8 +11,8 @@
         <constructor-arg ref="feed"/>
     </bean>
     <bean id="classPath" class="java.lang.String">
-        <constructor-arg><value>/home/hans/dev/App/glassfish3/glassfish/domains/domain1/applications/farm-0.0.1-SNAPSHOT/WEB-INF/classes</value></constructor-arg>
-        <!--<constructor-arg><value>C:\Dev\Source\GitHub\BlueSmoke\target\farm-0.0.1-SNAPSHOT\WEB-INF\classes</value></constructor-arg>-->
+        <!--<constructor-arg><value>/home/hans/dev/App/glassfish3/glassfish/domains/domain1/applications/farm-0.0.1-SNAPSHOT/WEB-INF/classes</value></constructor-arg>-->
+        <constructor-arg><value>C:\Dev\Source\GitHub\BlueSmoke\target\farm-0.0.1-SNAPSHOT\WEB-INF\classes</value></constructor-arg>
     </bean>
     <bean id="emulator" class="com.bluesmoke.farm.worker.PassageOfTimeEmulationWorker">
         <constructor-arg ref="feed"/>

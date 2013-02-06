@@ -12,6 +12,7 @@ public class DescendantCorrelator extends GenericCorrelator {
     public DescendantCorrelator(String id, CorrelatorBuilderManager correlatorBuilderManager, CorrelatorPool pool, FeedService feed, GenericCorrelator aggressiveParent, GenericCorrelator passiveParent, HashMap<String, Object> config)
     {
         super("Descendant_" + id, correlatorBuilderManager, pool, feed, aggressiveParent, passiveParent, config);
+        usesParentStates = true;
     }
 
     @Override
@@ -32,6 +33,11 @@ public class DescendantCorrelator extends GenericCorrelator {
     @Override
     public String createState() {
         String state = null;
+        if(aggressiveParent == null || !pool.contains(aggressiveParent) || passiveParent == null || !pool.contains(passiveParent))
+        {
+            killLineage();
+            return null;
+        }
         try
         {
             StateValueData aParentStateValueData = aggressiveParent.getCurrentStateValueData();
@@ -44,8 +50,9 @@ public class DescendantCorrelator extends GenericCorrelator {
                 List<Integer> aParentStateComponents = (List<Integer>) config.get("aParentStateComponents");
                 for(int i : aParentStateComponents)
                 {
-                    state += aParentStateValueData.getStateComponent(i) + ",";
-                    currentUnderlyingComponents.put("aParentStateComponents:" + i, aParentStateValueData.getStateComponent(i));
+                    String statePart = aParentStateValueData.getStateComponent(i);
+                    state += statePart + ",";
+                    currentUnderlyingComponents.put("aParentStateComponents:" + i, statePart);
                 }
 
                 List<Map.Entry<PassiveParentConfig, Integer>> passiveParentConfig = (List<Map.Entry<PassiveParentConfig, Integer>>) config.get("passiveParentConfig");
@@ -65,7 +72,7 @@ public class DescendantCorrelator extends GenericCorrelator {
                     else if(component.getKey().equals(PassiveParentConfig.SHARPE))
                     {
                         state += (int)(10 * pParentStateValueData.getSharpe()) + ",";
-                        currentUnderlyingComponents.put("pParentStateComponents:" + PassiveParentConfig.SDEV, pParentStateValueData.getSharpe());
+                        currentUnderlyingComponents.put("pParentStateComponents:" + PassiveParentConfig.SHARPE, pParentStateValueData.getSharpe());
                     }
                     else if(component.getKey().equals(PassiveParentConfig.MODE))
                     {
